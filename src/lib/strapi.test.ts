@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { strapiFetch } from './strapi';
+import { DEFAULT_REVALIDATE_SECONDS, strapiFetch } from './strapi';
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
@@ -86,5 +86,26 @@ describe('strapiFetch', () => {
 
     const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
     expect(init.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it('caches responses for an hour by default to limit ISR writes', async () => {
+    const fetchMock = vi.fn(async () => jsonResponse({ data: {} }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await strapiFetch('{ q }');
+
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit & { next?: { revalidate?: number } }];
+    expect(DEFAULT_REVALIDATE_SECONDS).toBe(3600);
+    expect(init.next?.revalidate).toBe(3600);
+  });
+
+  it('lets a caller override the revalidate time', async () => {
+    const fetchMock = vi.fn(async () => jsonResponse({ data: {} }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await strapiFetch('{ q }', { revalidate: 120 });
+
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit & { next?: { revalidate?: number } }];
+    expect(init.next?.revalidate).toBe(120);
   });
 });

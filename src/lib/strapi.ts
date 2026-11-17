@@ -10,6 +10,14 @@
 /** How long a single Strapi request may take before it is aborted. */
 const REQUEST_TIMEOUT_MS = 10_000;
 
+/**
+ * Default seconds before a cached Strapi response (and the page built from it)
+ * is regenerated. Every regeneration counts as an ISR write on Vercel, and the
+ * free plan allows 200,000 a month. An hour keeps CMS edits reasonably fresh
+ * while keeping writes low. Pass `revalidate` to override it for one query.
+ */
+export const DEFAULT_REVALIDATE_SECONDS = 3600;
+
 /** Reads a required env var, throwing a message that names the missing variable. */
 function requireEnv(name: 'STRAPI_URL' | 'STRAPI_API_TOKEN'): string {
   const value = process.env[name];
@@ -37,7 +45,7 @@ export async function strapiFetch<T>(
       Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({ query, variables: options?.variables }),
-    next: { revalidate: options?.revalidate ?? 60 },
+    next: { revalidate: options?.revalidate ?? DEFAULT_REVALIDATE_SECONDS },
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
 
